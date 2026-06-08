@@ -1,0 +1,83 @@
+import { Session, LearningGoal, SSEEvent } from "./types";
+
+const BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export async function createSession(
+  topic: string,
+  learning_goal: LearningGoal,
+): Promise<Session> {
+  const res = await fetch(`${BASE}/sessions/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic, learning_goal }),
+  });
+  if (!res.ok) throw new Error("Failed to create session");
+  return res.json();
+}
+
+export async function getSession(sessionId: string): Promise<Session> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}`);
+  if (!res.ok) throw new Error("Session not found");
+  return res.json();
+}
+
+// B3 fix: fetch all sessions from backend on load
+export async function getAllSessions(): Promise<Session[]> {
+  try {
+    const res = await fetch(`${BASE}/sessions/`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function getSessionMessages(
+  sessionId: string,
+): Promise<{ role: string; content: string }[]> {
+  try {
+    const res = await fetch(`${BASE}/sessions/${sessionId}/messages`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
+export async function* streamChat(
+  sessionId: string,
+  message: string,
+): AsyncGenerator<SSEEvent> {
+  const res = await fetch(`${BASE}/sessions/${sessionId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  });
+
+  if (!res.ok) throw new Error("Chat request failed");
+  if (!res.body) throw new Error("No response body");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      if (line.startsWith("data: ")) {
+        try {
+          const event: SSEEvent = JSON.parse(line.slice(6));
+          yield event;
+        } catch {
+          // skip malformed lines
+        }
+      }
+    }
+  }
+}
