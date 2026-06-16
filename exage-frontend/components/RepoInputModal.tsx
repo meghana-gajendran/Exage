@@ -1,33 +1,36 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { LearningGoal } from '@/lib/types'
 
 const GOALS: { value: LearningGoal; label: string; desc: string }[] = [
-  { value: 'interview', label: 'Interview prep', desc: 'Identify gaps before a technical interview' },
-  { value: 'exam', label: 'Exam preparation', desc: 'Strengthen weak areas before an exam' },
-  { value: 'project', label: 'Building a project', desc: 'Understand what you need to know to ship' },
-  { value: 'teaching', label: 'Teaching others', desc: 'Find the gaps in your ability to explain' },
-  { value: 'curiosity', label: 'General curiosity', desc: 'Explore a topic more deeply' },
+  { value: 'interview', label: 'Interview prep', desc: 'Gaps most likely to be probed by an interviewer' },
+  { value: 'project', label: 'Building a project', desc: 'Gaps that could cause production issues' },
+  { value: 'teaching', label: 'Teaching others', desc: 'Gaps in your ability to explain the why' },
+  { value: 'exam', label: 'Exam preparation', desc: 'Gaps in theoretical understanding' },
+  { value: 'curiosity', label: 'General curiosity', desc: 'Gaps that unlock deeper understanding' },
 ]
 
 interface Props {
-  onStart: (topic: string, goal: LearningGoal) => void
+  onAnalyse: (repoInput: string, goal: LearningGoal) => void
+  onBack: () => void
 }
 
-export default function OnboardingModal({ onStart }: Props) {
-  const router = useRouter()
-  const [topic, setTopic] = useState('')
+export default function RepoInputModal({ onAnalyse, onBack }: Props) {
+  const [repoInput, setRepoInput] = useState('')
   const [goal, setGoal] = useState<LearningGoal | null>(null)
-  const [loading, setLoading] = useState(false)
 
-  const handleStart = async () => {
-    if (!topic.trim() || !goal) return
-    setLoading(true)
-    await onStart(topic.trim(), goal)
-    setLoading(false)
-  }
+  const isGitHub = repoInput.trim().startsWith('https://github.com/')
+  const isLocal = repoInput.trim().startsWith('/') || repoInput.trim().startsWith('~')
+  const isValid = (isGitHub || isLocal) && goal !== null
+
+  const inputHint = repoInput.trim() === ''
+    ? 'GitHub URL or local path'
+    : isGitHub
+      ? '✓ GitHub repository'
+      : isLocal
+        ? '✓ Local folder path'
+        : 'Enter a GitHub URL (https://github.com/…) or local path (/Users/…)'
 
   return (
     <div style={{
@@ -43,69 +46,59 @@ export default function OnboardingModal({ onStart }: Props) {
         borderRadius: '12px',
         padding: '36px',
         width: '100%',
-        maxWidth: '480px',
+        maxWidth: '520px',
       }}>
+        {/* Header */}
         <div style={{ marginBottom: '28px' }}>
+          <button
+            onClick={onBack}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'var(--font)', fontSize: '12px',
+              color: 'var(--text-muted)', marginBottom: '12px',
+              padding: 0, display: 'flex', alignItems: 'center', gap: '4px',
+            }}
+          >
+            ← back
+          </button>
           <div style={{ fontFamily: 'var(--mono)', fontSize: '15px', fontWeight: 500, marginBottom: '6px' }}>
             Ex<span style={{ color: 'var(--pink)' }}>Age</span>
           </div>
           <div style={{ fontSize: '18px', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '6px' }}>
-            What are you working on?
+            Analyse a repository
           </div>
           <div style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
-            ExAge will probe your understanding and surface what you don't yet know.
+            ExAge will read your repository, infer what you understand, and surface the gaps that matter most for your goal.
           </div>
         </div>
 
-        {/* Mode selector */}
+        {/* Repo input */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={labelStyle}>Mode</label>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{
-              flex: 1, padding: '10px 12px',
-              border: '1px solid var(--pink-border)',
-              borderRadius: '8px', background: 'var(--pink-soft)',
-              fontSize: '12.5px', fontWeight: 500, color: 'var(--pink)',
-              textAlign: 'center',
-            }}>
-              Chat — explain what you know
-            </div>
-            <button
-              onClick={() => router.push('/repo')}
-              style={{
-                flex: 1, padding: '10px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: '8px', background: 'var(--bg)',
-                fontSize: '12.5px', fontWeight: 500, color: 'var(--text-muted)',
-                cursor: 'pointer', fontFamily: 'var(--font)',
-                textAlign: 'center',
-              }}
-            >
-              Repo — analyse a codebase
-            </button>
-          </div>
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={labelStyle}>Topic</label>
+          <label style={labelStyle}>Repository</label>
           <input
             type="text"
-            value={topic}
-            onChange={e => setTopic(e.target.value)}
-            placeholder="e.g. Kubernetes, React Hooks, System Design…"
-            onKeyDown={e => e.key === 'Enter' && handleStart()}
+            value={repoInput}
+            onChange={e => setRepoInput(e.target.value)}
+            placeholder="https://github.com/owner/repo or /local/path"
             style={{
               width: '100%', padding: '10px 12px',
-              border: '1px solid var(--border)',
+              border: `1px solid ${isValid || repoInput === '' ? 'var(--border)' : 'var(--border)'}`,
               borderRadius: '8px', fontFamily: 'var(--font)',
               fontSize: '13.5px', color: 'var(--text-primary)',
               background: 'var(--bg)', outline: 'none',
             }}
           />
+          <div style={{
+            fontSize: '11px', marginTop: '5px',
+            color: isGitHub || isLocal || repoInput === '' ? 'var(--text-muted)' : 'var(--pink)',
+          }}>
+            {inputHint}
+          </div>
         </div>
 
+        {/* Goal selector */}
         <div style={{ marginBottom: '28px' }}>
-          <label style={labelStyle}>Learning goal</label>
+          <label style={labelStyle}>What are you working toward?</label>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {GOALS.map(g => (
               <button
@@ -130,20 +123,21 @@ export default function OnboardingModal({ onStart }: Props) {
           </div>
         </div>
 
+        {/* Submit */}
         <button
-          onClick={handleStart}
-          disabled={!topic.trim() || !goal || loading}
+          onClick={() => goal && onAnalyse(repoInput.trim(), goal)}
+          disabled={!isValid}
           style={{
             width: '100%', padding: '11px',
-            background: (!topic.trim() || !goal) ? 'var(--border)' : 'var(--pink)',
-            color: (!topic.trim() || !goal) ? 'var(--text-muted)' : 'white',
+            background: isValid ? 'var(--pink)' : 'var(--border)',
+            color: isValid ? 'white' : 'var(--text-muted)',
             border: 'none', borderRadius: '8px',
             fontFamily: 'var(--font)', fontSize: '13.5px', fontWeight: 500,
-            cursor: (!topic.trim() || !goal) ? 'not-allowed' : 'pointer',
+            cursor: isValid ? 'pointer' : 'not-allowed',
             transition: 'opacity 0.15s',
           }}
         >
-          {loading ? 'Starting…' : 'Begin session'}
+          Analyse repository
         </button>
       </div>
     </div>
