@@ -15,8 +15,7 @@ The output is deliberately granular. "dbt" is not a concept —
 "incremental materialisation with unique_key strategy" is a concept.
 """
 
-import json
-from agents.base import call_llm
+from chat_agents.base import call_llm
 
 SYSTEM_PROMPT = """
 You are a senior engineer doing a technical concept inventory of a codebase.

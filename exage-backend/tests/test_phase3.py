@@ -114,9 +114,9 @@ MOCK_RANKED = {
 
 @pytest.mark.asyncio
 async def test_gap_detector_returns_required_keys():
-    with patch("agents_option2.gap_detector_v2.call_llm",
+    with patch("repo_agents.gap_detector_v2.call_llm",
                new=AsyncMock(return_value=(MOCK_GAPS, 900))):
-        from agents_option2.gap_detector_v2 import run_gap_detector_v2
+        from repo_agents.gap_detector_v2 import run_gap_detector_v2
         result, latency = await run_gap_detector_v2(
             skill_map=MOCK_SKILL_MAP,
             extracted_concepts=MOCK_EXTRACTED,
@@ -133,9 +133,9 @@ async def test_gap_detector_returns_required_keys():
 
 @pytest.mark.asyncio
 async def test_gap_detector_gap_has_required_fields():
-    with patch("agents_option2.gap_detector_v2.call_llm",
+    with patch("repo_agents.gap_detector_v2.call_llm",
                new=AsyncMock(return_value=(MOCK_GAPS, 800))):
-        from agents_option2.gap_detector_v2 import run_gap_detector_v2
+        from repo_agents.gap_detector_v2 import run_gap_detector_v2
         result, _ = await run_gap_detector_v2(MOCK_SKILL_MAP, MOCK_EXTRACTED, ["dbt"])
 
         gap = result["gaps"][0]
@@ -150,9 +150,9 @@ async def test_gap_detector_gap_has_required_fields():
 @pytest.mark.asyncio
 async def test_gap_detector_severity_values_valid():
     valid_severities = {"critical", "important", "nice-to-know"}
-    with patch("agents_option2.gap_detector_v2.call_llm",
+    with patch("repo_agents.gap_detector_v2.call_llm",
                new=AsyncMock(return_value=(MOCK_GAPS, 700))):
-        from agents_option2.gap_detector_v2 import run_gap_detector_v2
+        from repo_agents.gap_detector_v2 import run_gap_detector_v2
         result, _ = await run_gap_detector_v2(MOCK_SKILL_MAP, MOCK_EXTRACTED, ["dbt"])
 
         for gap in result["gaps"]:
@@ -163,9 +163,9 @@ async def test_gap_detector_severity_values_valid():
 async def test_gap_detector_gap_type_valid():
     valid_types = {"missing", "shallow"}
     valid_categories = {"domain_core", "general_practice"}
-    with patch("agents_option2.gap_detector_v2.call_llm",
+    with patch("repo_agents.gap_detector_v2.call_llm",
                new=AsyncMock(return_value=(MOCK_GAPS, 700))):
-        from agents_option2.gap_detector_v2 import run_gap_detector_v2
+        from repo_agents.gap_detector_v2 import run_gap_detector_v2
         result, _ = await run_gap_detector_v2(MOCK_SKILL_MAP, MOCK_EXTRACTED, ["dbt"])
 
         for gap in result["gaps"]:
@@ -177,9 +177,9 @@ async def test_gap_detector_gap_type_valid():
 
 @pytest.mark.asyncio
 async def test_consequence_ranker_returns_required_keys():
-    with patch("agents_option2.consequence_ranker.call_llm",
+    with patch("repo_agents.consequence_ranker.call_llm",
                new=AsyncMock(return_value=(MOCK_RANKED, 850))):
-        from agents_option2.consequence_ranker import run_consequence_ranker
+        from repo_agents.consequence_ranker import run_consequence_ranker
         result, latency = await run_consequence_ranker(
             gaps=MOCK_GAPS,
             learning_goal="interview",
@@ -198,9 +198,9 @@ async def test_consequence_ranker_selects_max_5_gaps():
         **MOCK_RANKED,
         "ranked_gaps": MOCK_RANKED["ranked_gaps"] * 3  # 6 gaps
     }
-    with patch("agents_option2.consequence_ranker.call_llm",
+    with patch("repo_agents.consequence_ranker.call_llm",
                new=AsyncMock(return_value=(large_ranked, 800))):
-        from agents_option2.consequence_ranker import run_consequence_ranker
+        from repo_agents.consequence_ranker import run_consequence_ranker
         result, _ = await run_consequence_ranker(MOCK_GAPS, "interview", ["dbt"])
         # Pipeline should accept whatever the LLM returns — ranker itself doesn't truncate
         assert len(result["ranked_gaps"]) > 0
@@ -208,9 +208,9 @@ async def test_consequence_ranker_selects_max_5_gaps():
 
 @pytest.mark.asyncio
 async def test_consequence_ranker_gap_has_probing_question():
-    with patch("agents_option2.consequence_ranker.call_llm",
+    with patch("repo_agents.consequence_ranker.call_llm",
                new=AsyncMock(return_value=(MOCK_RANKED, 750))):
-        from agents_option2.consequence_ranker import run_consequence_ranker
+        from repo_agents.consequence_ranker import run_consequence_ranker
         result, _ = await run_consequence_ranker(MOCK_GAPS, "interview", ["dbt"])
 
         for gap in result["ranked_gaps"]:
@@ -221,9 +221,9 @@ async def test_consequence_ranker_gap_has_probing_question():
 @pytest.mark.asyncio
 async def test_consequence_ranker_urgency_valid():
     valid_urgencies = {"immediate", "soon", "eventually"}
-    with patch("agents_option2.consequence_ranker.call_llm",
+    with patch("repo_agents.consequence_ranker.call_llm",
                new=AsyncMock(return_value=(MOCK_RANKED, 800))):
-        from agents_option2.consequence_ranker import run_consequence_ranker
+        from repo_agents.consequence_ranker import run_consequence_ranker
         result, _ = await run_consequence_ranker(MOCK_GAPS, "project", ["dbt"])
 
         for gap in result["ranked_gaps"]:
@@ -233,9 +233,9 @@ async def test_consequence_ranker_urgency_valid():
 @pytest.mark.asyncio
 async def test_consequence_ranker_domain_core_ranks_above_general():
     """Domain-core gaps should generally rank above general_practice gaps."""
-    with patch("agents_option2.consequence_ranker.call_llm",
+    with patch("repo_agents.consequence_ranker.call_llm",
                new=AsyncMock(return_value=(MOCK_RANKED, 800))):
-        from agents_option2.consequence_ranker import run_consequence_ranker
+        from repo_agents.consequence_ranker import run_consequence_ranker
         result, _ = await run_consequence_ranker(MOCK_GAPS, "interview", ["dbt"])
 
         ranked = result["ranked_gaps"]
@@ -256,16 +256,16 @@ async def test_full_pipeline_produces_ranked_gaps():
     with tempfile.TemporaryDirectory() as tmp:
         Path(tmp, "dbt_project.yml").write_text("name: test\n")
 
-        with patch("agents_option2.concept_extractor_v2.call_llm",
+        with patch("repo_agents.concept_extractor_v2.call_llm",
                    new=AsyncMock(return_value=(MOCK_EXTRACTED, 800))), \
-             patch("agents_option2.skill_inferrer.call_llm",
+             patch("repo_agents.skill_inferrer.call_llm",
                    new=AsyncMock(return_value=(MOCK_SKILL_MAP, 700))), \
-             patch("agents_option2.gap_detector_v2.call_llm",
+             patch("repo_agents.gap_detector_v2.call_llm",
                    new=AsyncMock(return_value=(MOCK_GAPS, 900))), \
-             patch("agents_option2.consequence_ranker.call_llm",
+             patch("repo_agents.consequence_ranker.call_llm",
                    new=AsyncMock(return_value=(MOCK_RANKED, 800))):
 
-            from agents_option2.pipeline_v2 import run_option2_pipeline
+            from repo_agents.pipeline_v2 import run_option2_pipeline
             result = await run_option2_pipeline(tmp, learning_goal="interview")
 
             assert result.error is None
@@ -285,16 +285,16 @@ async def test_full_pipeline_produces_session_context():
     with tempfile.TemporaryDirectory() as tmp:
         Path(tmp, "dbt_project.yml").write_text("name: test\n")
 
-        with patch("agents_option2.concept_extractor_v2.call_llm",
+        with patch("repo_agents.concept_extractor_v2.call_llm",
                    new=AsyncMock(return_value=(MOCK_EXTRACTED, 800))), \
-             patch("agents_option2.skill_inferrer.call_llm",
+             patch("repo_agents.skill_inferrer.call_llm",
                    new=AsyncMock(return_value=(MOCK_SKILL_MAP, 700))), \
-             patch("agents_option2.gap_detector_v2.call_llm",
+             patch("repo_agents.gap_detector_v2.call_llm",
                    new=AsyncMock(return_value=(MOCK_GAPS, 900))), \
-             patch("agents_option2.consequence_ranker.call_llm",
+             patch("repo_agents.consequence_ranker.call_llm",
                    new=AsyncMock(return_value=(MOCK_RANKED, 800))):
 
-            from agents_option2.pipeline_v2 import run_option2_pipeline, result_to_session_context
+            from repo_agents.pipeline_v2 import run_option2_pipeline, result_to_session_context
             result = await run_option2_pipeline(tmp, learning_goal="interview")
             context = result_to_session_context(result)
 
@@ -310,7 +310,7 @@ async def test_full_pipeline_produces_session_context():
 
 
 def test_format_result_shows_ranked_gaps():
-    from agents_option2.pipeline_v2 import RepoAnalysisResult, RankedGap, format_result_for_display
+    from repo_agents.pipeline_v2 import RepoAnalysisResult, RankedGap, format_result_for_display
 
     gap = RankedGap(
         rank=1,

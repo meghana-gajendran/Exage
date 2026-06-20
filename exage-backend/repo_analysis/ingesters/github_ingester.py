@@ -19,10 +19,9 @@ import urllib.request
 import urllib.error
 import json
 import base64
-from dataclasses import dataclass
 from typing import Optional
 from repo_analysis.file_scorer import (
-    should_skip_path, score_file, SKIP_DIRS, SKIP_EXTENSIONS,
+    SKIP_DIRS, SKIP_EXTENSIONS,
     HIGH_VALUE_NAMES, EXTENSION_SCORES
 )
 from repo_analysis.framework_detector import detect_frameworks

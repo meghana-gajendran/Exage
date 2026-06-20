@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from database import get_db
-from agents_option2.pipeline_v2 import (
+from repo_agents.pipeline_v2 import (
     run_option2_pipeline,
     result_to_session_context,
     RepoAnalysisResult,

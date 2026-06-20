@@ -1,4 +1,4 @@
-from agents.base import call_llm
+from chat_agents.base import call_llm
 import json
 
 SYSTEM_PROMPT = """

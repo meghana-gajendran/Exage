@@ -16,16 +16,15 @@ pre-loaded session state — skipping onboarding and going
 straight to probing.
 """
 
-import json
 from dataclasses import dataclass, field
 from typing import Optional
 
 from repo_analysis.ingester import ingest_repo, format_summary_for_llm
 from repo_analysis.ingesters.local_ingester import RepoSummary
-from agents_option2.concept_extractor_v2 import run_concept_extractor_v2
-from agents_option2.skill_inferrer import run_skill_inferrer
-from agents_option2.gap_detector_v2 import run_gap_detector_v2
-from agents_option2.consequence_ranker import run_consequence_ranker
+from repo_agents.concept_extractor_v2 import run_concept_extractor_v2
+from repo_agents.skill_inferrer import run_skill_inferrer
+from repo_agents.gap_detector_v2 import run_gap_detector_v2
+from repo_agents.consequence_ranker import run_consequence_ranker
 
 
 @dataclass

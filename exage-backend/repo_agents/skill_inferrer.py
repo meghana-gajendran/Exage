@@ -25,7 +25,7 @@ This feeds directly into the Gap Detector.
 """
 
 import json
-from agents.base import call_llm
+from chat_agents.base import call_llm
 
 SYSTEM_PROMPT = """
 You are an expert at inferring technical understanding from code artifacts.

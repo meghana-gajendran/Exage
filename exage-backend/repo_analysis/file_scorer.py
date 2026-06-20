@@ -12,9 +12,8 @@ Scoring is based on:
 - Name signals (main, index, core, base > utils, helpers, migrations)
 """
 
-import os
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 
 

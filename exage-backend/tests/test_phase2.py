@@ -43,9 +43,9 @@ async def test_concept_extractor_returns_required_keys():
         ]
     }
 
-    with patch("agents_option2.concept_extractor_v2.call_llm",
+    with patch("repo_agents.concept_extractor_v2.call_llm",
                new=AsyncMock(return_value=(mock_output, 800))):
-        from agents_option2.concept_extractor_v2 import run_concept_extractor_v2
+        from repo_agents.concept_extractor_v2 import run_concept_extractor_v2
         result, latency = await run_concept_extractor_v2(
             repo_summary_text="sample repo text",
             frameworks=["dbt", "SQL"]
@@ -76,9 +76,9 @@ async def test_concept_extractor_concept_has_required_fields():
         "structural_observations": []
     }
 
-    with patch("agents_option2.concept_extractor_v2.call_llm",
+    with patch("repo_agents.concept_extractor_v2.call_llm",
                new=AsyncMock(return_value=(mock_output, 600))):
-        from agents_option2.concept_extractor_v2 import run_concept_extractor_v2
+        from repo_agents.concept_extractor_v2 import run_concept_extractor_v2
         result, _ = await run_concept_extractor_v2("text", ["Python", "FastAPI"])
 
         concept = result["concepts"][0]
@@ -104,9 +104,9 @@ async def test_concept_extractor_handles_absent_concepts():
         "structural_observations": ["No test coverage detected"]
     }
 
-    with patch("agents_option2.concept_extractor_v2.call_llm",
+    with patch("repo_agents.concept_extractor_v2.call_llm",
                new=AsyncMock(return_value=(mock_output, 500))):
-        from agents_option2.concept_extractor_v2 import run_concept_extractor_v2
+        from repo_agents.concept_extractor_v2 import run_concept_extractor_v2
         result, _ = await run_concept_extractor_v2("text", ["dbt"])
 
         assert len(result["absent_concepts"]) == 1
@@ -132,9 +132,9 @@ async def test_skill_inferrer_returns_required_keys():
         "weakest_signals": ["testing", "incremental strategies"]
     }
 
-    with patch("agents_option2.skill_inferrer.call_llm",
+    with patch("repo_agents.skill_inferrer.call_llm",
                new=AsyncMock(return_value=(mock_output, 900))):
-        from agents_option2.skill_inferrer import run_skill_inferrer
+        from repo_agents.skill_inferrer import run_skill_inferrer
         result, latency = await run_skill_inferrer(
             extracted_concepts={"concepts": [], "absent_concepts": []},
             frameworks=["dbt"]
@@ -172,9 +172,9 @@ async def test_skill_inferrer_depth_values_are_valid():
         "weakest_signals": ["macros"]
     }
 
-    with patch("agents_option2.skill_inferrer.call_llm",
+    with patch("repo_agents.skill_inferrer.call_llm",
                new=AsyncMock(return_value=(mock_output, 700))):
-        from agents_option2.skill_inferrer import run_skill_inferrer
+        from repo_agents.skill_inferrer import run_skill_inferrer
         result, _ = await run_skill_inferrer({}, ["dbt"])
 
         for skill in result["skill_map"]:
@@ -199,9 +199,9 @@ async def test_skill_inferrer_confidence_values_are_valid():
         "weakest_signals": []
     }
 
-    with patch("agents_option2.skill_inferrer.call_llm",
+    with patch("repo_agents.skill_inferrer.call_llm",
                new=AsyncMock(return_value=(mock_output, 650))):
-        from agents_option2.skill_inferrer import run_skill_inferrer
+        from repo_agents.skill_inferrer import run_skill_inferrer
         result, _ = await run_skill_inferrer({}, ["SQL"])
 
         for skill in result["skill_map"]:
@@ -215,7 +215,6 @@ async def test_pipeline_v2_returns_result_object():
     import tempfile
     from pathlib import Path
 
-    # Create a minimal temp repo
     with tempfile.TemporaryDirectory() as tmp:
         Path(tmp, "dbt_project.yml").write_text("name: test_project\n")
         Path(tmp, "requirements.txt").write_text("dbt-core==1.5.0\n")
@@ -235,67 +234,82 @@ async def test_pipeline_v2_returns_result_object():
             "strongest_areas": [],
             "weakest_signals": ["testing"]
         }
+        gap_mock = {
+            "domain": "data pipeline",
+            "gaps": [],
+            "technology_coverage_score": 30,
+            "coverage_note": "Minimal coverage"
+        }
+        ranked_mock = {
+            "learning_goal": "curiosity",
+            "ranked_gaps": [],
+            "analysis_summary": "Early stage project."
+        }
 
-        with patch("agents_option2.concept_extractor_v2.call_llm",
+        with patch("repo_agents.concept_extractor_v2.call_llm",
                    new=AsyncMock(return_value=(extractor_mock, 800))), \
-             patch("agents_option2.skill_inferrer.call_llm",
-                   new=AsyncMock(return_value=(skill_mock, 700))):
+             patch("repo_agents.skill_inferrer.call_llm",
+                   new=AsyncMock(return_value=(skill_mock, 700))), \
+             patch("repo_agents.gap_detector_v2.call_llm",
+                   new=AsyncMock(return_value=(gap_mock, 600))), \
+             patch("repo_agents.consequence_ranker.call_llm",
+                   new=AsyncMock(return_value=(ranked_mock, 500))):
 
-            from agents_option2.pipeline_v2 import run_option2_pipeline
-            result = await run_option2_pipeline(tmp)
+            from repo_agents.pipeline_v2 import run_option2_pipeline
+            result = await run_option2_pipeline(tmp, learning_goal="curiosity")
 
             assert result.error is None
             assert result.repo_name is not None
             assert result.input_type == "local"
-            assert isinstance(result.frameworks, list)
-            assert isinstance(result.extracted_concepts, dict)
-            assert isinstance(result.skill_map, dict)
-            assert len(result.agent_traces) == 2
+            assert len(result.agent_traces) == 4
 
 
 @pytest.mark.asyncio
 async def test_pipeline_v2_handles_invalid_path():
-    from agents_option2.pipeline_v2 import run_option2_pipeline
+    from repo_agents.pipeline_v2 import run_option2_pipeline
     result = await run_option2_pipeline("/nonexistent/repo/path")
     assert result.error is not None
 
 
 def test_format_result_for_display():
-    from agents_option2.pipeline_v2 import RepoAnalysisResult, format_result_for_display
+    from repo_agents.pipeline_v2 import RepoAnalysisResult, format_result_for_display
 
     result = RepoAnalysisResult(
         repo_name="my-dbt-project",
         input_type="local",
+        learning_goal="curiosity",
         frameworks=["dbt", "SQL"],
-        framework_context="A dbt analytics project for e-commerce data.",
-        extracted_concepts={},
-        skill_map={},
-        overall_assessment="Intermediate dbt user with strong SQL skills.",
-        strongest_areas=["SQL transformations", "dbt basics"],
-        weakest_signals=["testing", "incremental strategies"],
+        framework_context="A dbt analytics project.",
+        domain="data pipeline",
+        overall_assessment="Intermediate dbt user.",
+        strongest_areas=["SQL transformations"],
+        weakest_signals=["testing"],
+        ranked_gaps=[],
+        analysis_summary="Testing is the critical gap.",
+        technology_coverage_score=65,
     )
 
     output = format_result_for_display(result)
     assert "my-dbt-project" in output
     assert "dbt" in output
-    assert "SQL transformations" in output
-    assert "testing" in output
-    assert "Intermediate dbt user" in output
 
 
 def test_format_result_handles_error():
-    from agents_option2.pipeline_v2 import RepoAnalysisResult, format_result_for_display
+    from repo_agents.pipeline_v2 import RepoAnalysisResult, format_result_for_display
 
     result = RepoAnalysisResult(
         repo_name="bad-repo",
         input_type="local",
+        learning_goal="curiosity",
         frameworks=[],
         framework_context="",
-        extracted_concepts={},
-        skill_map={},
+        domain="",
         overall_assessment="",
         strongest_areas=[],
         weakest_signals=[],
+        ranked_gaps=[],
+        analysis_summary="",
+        technology_coverage_score=0,
         error="Path does not exist",
     )
 

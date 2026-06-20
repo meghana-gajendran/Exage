@@ -14,7 +14,6 @@ The output tells downstream agents what concept graph to use for gap detection.
 from pathlib import Path
 from dataclasses import dataclass
 import json
-import re
 
 
 @dataclass

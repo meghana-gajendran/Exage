@@ -1,4 +1,4 @@
-from agents.base import call_llm
+from chat_agents.base import call_llm
 
 SYSTEM_PROMPT = """
 You are a precise concept parser. Your only job is to analyze what a learner said and extract structured information.

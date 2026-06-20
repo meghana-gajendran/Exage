@@ -1,5 +1,4 @@
-from agents.base import call_llm
-import json
+from chat_agents.base import call_llm
 
 SYSTEM_PROMPT = """
 You are an evaluation agent for ExAge, an AI learning tool that probes understanding.

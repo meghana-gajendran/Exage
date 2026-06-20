@@ -37,7 +37,7 @@ session context — the gaps become the starting point for probing.
 """
 
 import json
-from agents.base import call_llm
+from chat_agents.base import call_llm
 
 LEARNING_GOAL_CONTEXT = {
     "interview": "The learner is preparing for a technical interview. Prioritise gaps that are commonly tested in interviews, that signal engineering maturity, or that interviewers use to separate junior from senior candidates. Interviewers very often ask candidates to explain their own projects in depth — so shallow understanding of THIS project's core domain mechanisms is especially likely to be exposed.",

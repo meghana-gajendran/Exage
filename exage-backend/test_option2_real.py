@@ -16,7 +16,7 @@ Requires:
 import asyncio
 import json
 import sys
-from agents_option2.pipeline_v2 import run_option2_pipeline, format_result_for_display, result_to_session_context
+from repo_agents.pipeline_v2 import run_option2_pipeline, format_result_for_display, result_to_session_context
 
 
 REPO_URL = "https://github.com/meghana-gajendran/docksmith"
