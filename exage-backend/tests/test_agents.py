@@ -10,8 +10,8 @@ async def test_extractor_returns_stated_concepts():
         "confidence_signals": ["I understand"],
         "framing_flags": ["vague claim about scaling"]
     }
-    with patch("agents.concept_extractor.call_llm", new=AsyncMock(return_value=(mock_output, 100))):
-        from agents.concept_extractor import run_concept_extractor
+    with patch("chat_agents.concept_extractor.call_llm", new=AsyncMock(return_value=(mock_output, 100))):
+        from chat_agents.concept_extractor import run_concept_extractor
         result, _ = await run_concept_extractor("Kubernetes", "I understand pods, deployments and scaling")
         assert "pods" in result["stated_concepts"]
         assert "deployments" in result["stated_concepts"]
@@ -23,8 +23,8 @@ async def test_extractor_output_has_required_keys():
         "confidence_signals": [],
         "framing_flags": []
     }
-    with patch("agents.concept_extractor.call_llm", new=AsyncMock(return_value=(mock_output, 50))):
-        from agents.concept_extractor import run_concept_extractor
+    with patch("chat_agents.concept_extractor.call_llm", new=AsyncMock(return_value=(mock_output, 50))):
+        from chat_agents.concept_extractor import run_concept_extractor
         result, _ = await run_concept_extractor("Python", "I know loops")
         assert "stated_concepts" in result
         assert "confidence_signals" in result
@@ -40,8 +40,8 @@ async def test_gap_detector_finds_missing_concepts():
         ],
         "likely_misconceptions": []
     }
-    with patch("agents.gap_detector.call_llm", new=AsyncMock(return_value=(mock_output, 120))):
-        from agents.gap_detector import run_gap_detector
+    with patch("chat_agents.gap_detector.call_llm", new=AsyncMock(return_value=(mock_output, 120))):
+        from chat_agents.gap_detector import run_gap_detector
         result, _ = await run_gap_detector(
             topic="Kubernetes",
             stated_concepts=["pods", "deployments"],
@@ -59,8 +59,8 @@ async def test_gap_detector_excludes_asked_gaps():
         ],
         "likely_misconceptions": []
     }
-    with patch("agents.gap_detector.call_llm", new=AsyncMock(return_value=(mock_output, 100))):
-        from agents.gap_detector import run_gap_detector
+    with patch("chat_agents.gap_detector.call_llm", new=AsyncMock(return_value=(mock_output, 100))):
+        from chat_agents.gap_detector import run_gap_detector
         result, _ = await run_gap_detector(
             topic="Kubernetes",
             stated_concepts=["pods"],
@@ -79,8 +79,8 @@ async def test_question_generator_returns_questions():
             {"question": "What happens after kubectl apply?", "targets_concept": "kube-scheduler", "question_type": "structural", "priority": 1}
         ]
     }
-    with patch("agents.question_generator.call_llm", new=AsyncMock(return_value=(mock_output, 90))):
-        from agents.question_generator import run_question_generator
+    with patch("chat_agents.question_generator.call_llm", new=AsyncMock(return_value=(mock_output, 90))):
+        from chat_agents.question_generator import run_question_generator
         result, _ = await run_question_generator(
             missing_concepts=[{"concept": "kube-scheduler", "severity": "critical", "why_it_matters_for_goal": "core topic"}],
             likely_misconceptions=[],
@@ -96,8 +96,8 @@ async def test_question_generator_returns_questions():
 @pytest.mark.asyncio
 async def test_composer_asks_at_most_two_questions():
     mock_response = "Interesting — what happens to traffic when a pod restarts? Also, how does Kubernetes decide where to schedule a pod?"
-    with patch("agents.response_composer.call_llm", new=AsyncMock(return_value=(mock_response, 80))):
-        from agents.response_composer import run_response_composer
+    with patch("chat_agents.response_composer.call_llm", new=AsyncMock(return_value=(mock_response, 80))):
+        from chat_agents.response_composer import run_response_composer
         result, _ = await run_response_composer(
             ranked_questions=[],
             conversation_history=[],
@@ -108,8 +108,8 @@ async def test_composer_asks_at_most_two_questions():
 @pytest.mark.asyncio
 async def test_composer_does_not_explain_concepts():
     mock_response = "When a pod crashes, what do you think triggers its restart?"
-    with patch("agents.response_composer.call_llm", new=AsyncMock(return_value=(mock_response, 80))):
-        from agents.response_composer import run_response_composer
+    with patch("chat_agents.response_composer.call_llm", new=AsyncMock(return_value=(mock_response, 80))):
+        from chat_agents.response_composer import run_response_composer
         result, _ = await run_response_composer(
             ranked_questions=[],
             conversation_history=[],
@@ -122,8 +122,8 @@ async def test_composer_does_not_explain_concepts():
 @pytest.mark.asyncio
 async def test_composer_avoids_praise():
     mock_response = "What component do you think is responsible for detecting that failure?"
-    with patch("agents.response_composer.call_llm", new=AsyncMock(return_value=(mock_response, 75))):
-        from agents.response_composer import run_response_composer
+    with patch("chat_agents.response_composer.call_llm", new=AsyncMock(return_value=(mock_response, 75))):
+        from chat_agents.response_composer import run_response_composer
         result, _ = await run_response_composer(
             ranked_questions=[],
             conversation_history=[],

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
 from main import app
 
@@ -22,8 +22,8 @@ async def test_synthesis_agent_returns_required_keys():
         ],
         "closing_thought": "If Kubernetes disappeared tomorrow, what would you build instead?"
     }
-    with patch("agents.synthesis_agent.call_llm", new=AsyncMock(return_value=(mock_output, 200))):
-        from agents.synthesis_agent import run_synthesis_agent
+    with patch("chat_agents.synthesis_agent.call_llm", new=AsyncMock(return_value=(mock_output, 200))):
+        from chat_agents.synthesis_agent import run_synthesis_agent
         result, _ = await run_synthesis_agent(
             topic="Kubernetes",
             learning_goal="interview",
@@ -50,8 +50,8 @@ async def test_synthesis_closing_thought_is_question():
         ],
         "closing_thought": "What would you do differently now?"
     }
-    with patch("agents.synthesis_agent.call_llm", new=AsyncMock(return_value=(mock_output, 150))):
-        from agents.synthesis_agent import run_synthesis_agent
+    with patch("chat_agents.synthesis_agent.call_llm", new=AsyncMock(return_value=(mock_output, 150))):
+        from chat_agents.synthesis_agent import run_synthesis_agent
         result, _ = await run_synthesis_agent(
             topic="Python", learning_goal="exam",
             all_gaps=[], misconceptions=[], conversation_history=[],
@@ -69,8 +69,8 @@ async def test_evaluation_agent_returns_required_keys():
         "evidence": "Learner gave a vague answer that did not address scheduling.",
         "recommendation": "Ask more specifically about node selection criteria."
     }
-    with patch("agents.evaluation_agent.call_llm", new=AsyncMock(return_value=(mock_output, 100))):
-        from agents.evaluation_agent import run_evaluation_agent
+    with patch("chat_agents.evaluation_agent.call_llm", new=AsyncMock(return_value=(mock_output, 100))):
+        from chat_agents.evaluation_agent import run_evaluation_agent
         result, _ = await run_evaluation_agent(
             question_asked="What component decides where a pod runs?",
             learner_response="The cluster handles it automatically.",
@@ -90,8 +90,8 @@ async def test_evaluation_agent_question_quality_valid_values():
         "evidence": "Learner knew this already.",
         "recommendation": "Escalate to structural questions."
     }
-    with patch("agents.evaluation_agent.call_llm", new=AsyncMock(return_value=(mock_output, 90))):
-        from agents.evaluation_agent import run_evaluation_agent
+    with patch("chat_agents.evaluation_agent.call_llm", new=AsyncMock(return_value=(mock_output, 90))):
+        from chat_agents.evaluation_agent import run_evaluation_agent
         result, _ = await run_evaluation_agent(
             question_asked="What is a pod?",
             learner_response="A pod is the smallest deployable unit in Kubernetes.",

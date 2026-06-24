@@ -30,7 +30,7 @@ revealing of the learner's mental model and more valuable to probe.
 """
 
 import json
-from agents.base import call_llm
+from chat_agents.base import call_llm
 
 SYSTEM_PROMPT = """
 You are an expert in identifying knowledge gaps from code artifacts.

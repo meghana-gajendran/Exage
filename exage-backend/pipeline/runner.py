@@ -2,12 +2,12 @@ import json
 from typing import AsyncGenerator
 from sqlalchemy.orm import Session as DBSession
 from models import Session, Message, AgentTrace
-from agents.concept_extractor import run_concept_extractor
-from agents.gap_detector import run_gap_detector
-from agents.question_generator import run_question_generator
-from agents.response_composer import run_response_composer
-from agents.synthesis_agent import run_synthesis_agent
-from agents.evaluation_agent import run_evaluation_agent
+from chat_agents.concept_extractor import run_concept_extractor
+from chat_agents.gap_detector import run_gap_detector
+from chat_agents.question_generator import run_question_generator
+from chat_agents.response_composer import run_response_composer
+from chat_agents.synthesis_agent import run_synthesis_agent
+from chat_agents.evaluation_agent import run_evaluation_agent
 
 SYNTHESIS_TRIGGER_TURNS = 8
 SYNTHESIS_KEYWORDS = {"done", "wrap up", "wrapup", "finish", "summarize", "summary", "that's all", "thats all", "end session"}

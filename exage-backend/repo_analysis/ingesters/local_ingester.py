@@ -9,7 +9,7 @@ The RepoSummary is passed to the Concept Extractor agent.
 """
 
 from pathlib import Path
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional
 from repo_analysis.file_scorer import walk_and_score, select_files
 from repo_analysis.framework_detector import detect_frameworks, DetectedFramework

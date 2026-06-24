@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import patch, AsyncMock, MagicMock
 import json
 
+
 @pytest.mark.asyncio
 async def test_pipeline_returns_string_response():
     mock_session = MagicMock()
@@ -68,3 +69,67 @@ async def test_pipeline_updates_asked_gaps():
 
         asked = json.loads(mock_session.asked_gaps_json)
         assert len(asked) > 0  # gaps were marked as asked
+
+@pytest.mark.asyncio
+async def test_pipeline_streaming_yields_correct_event_types():
+    """
+    Tests run_pipeline_streaming directly — ensures it yields
+    status, token, and done events in the correct order.
+    This catches breakage if event keys or types change in runner.py.
+    """
+    import json
+    from unittest.mock import MagicMock, AsyncMock, patch
+
+    mock_session = MagicMock()
+    mock_session.id = "stream-test-session"
+    mock_session.topic = "Kubernetes"
+    mock_session.learning_goal = "interview"
+    mock_session.turn_count = 0
+    mock_session.phase = "probing"
+    mock_session.known_concepts_json = "[]"
+    mock_session.asked_gaps_json = "[]"
+    mock_session.open_gaps_json = "[]"
+    mock_session.misconceptions_json = "[]"
+    mock_session.messages = []
+
+    mock_db = MagicMock()
+
+    extractor_out = {"stated_concepts": ["pods"], "confidence_signals": [], "framing_flags": []}
+    detector_out = {"missing_concepts": [{"concept": "kube-scheduler", "severity": "critical", "why_it_matters_for_goal": "core topic"}], "likely_misconceptions": []}
+    generator_out = {"questions": [{"question": "What happens after kubectl apply?", "targets_concept": "kube-scheduler", "question_type": "structural", "priority": 1}]}
+    composer_out = "What happens after kubectl apply?"
+
+    with patch("pipeline.runner.run_concept_extractor", new=AsyncMock(return_value=(extractor_out, 100))), \
+         patch("pipeline.runner.run_gap_detector", new=AsyncMock(return_value=(detector_out, 100))), \
+         patch("pipeline.runner.run_question_generator", new=AsyncMock(return_value=(generator_out, 100))), \
+         patch("pipeline.runner.run_response_composer", new=AsyncMock(return_value=(composer_out, 100))):
+
+        from pipeline.runner import run_pipeline_streaming
+        events = []
+        async for event in run_pipeline_streaming(mock_session, "I understand pods", mock_db):
+            events.append(event)
+
+        event_types = [e["type"] for e in events]
+
+        # Must have at least one status event
+        assert "status" in event_types
+
+        # Must have token events (the response)
+        assert "token" in event_types
+
+        # Must end with a done event
+        assert event_types[-1] == "done"
+
+        # Done event must have required keys
+        done_event = events[-1]
+        assert "phase" in done_event
+        assert "turn" in done_event
+        assert "gaps" in done_event
+
+        # Tokens must have text
+        tokens = [e for e in events if e["type"] == "token"]
+        assert all("text" in t for t in tokens)
+
+        # Reconstructed response must be non-empty
+        full_response = "".join(t["text"] for t in tokens)
+        assert len(full_response) > 0

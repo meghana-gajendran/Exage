@@ -6,8 +6,6 @@ No real GitHub calls are made.
 """
 
 import pytest
-import tempfile
-import os
 from pathlib import Path
 from repo_analysis.file_scorer import walk_and_score, select_files, should_skip_path
 from repo_analysis.framework_detector import detect_frameworks
