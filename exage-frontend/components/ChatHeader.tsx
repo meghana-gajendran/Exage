@@ -2,8 +2,17 @@
 
 import { Session } from '@/lib/types'
 
+interface RepoContextInfo {
+  repo_name: string
+  domain: string
+  framework_context: string
+  overall_assessment: string
+  probing_questions: string[]
+}
+
 interface Props {
   session: Session | null
+  repoContext?: RepoContextInfo
 }
 
 const PHASE_LABELS: Record<string, string> = {
@@ -20,7 +29,7 @@ const GOAL_LABELS: Record<string, string> = {
   curiosity: 'Curiosity',
 }
 
-export default function ChatHeader({ session }: Props) {
+export default function ChatHeader({ session, repoContext }: Props) {
   if (!session) {
     return (
       <header style={{
@@ -58,6 +67,19 @@ export default function ChatHeader({ session }: Props) {
           }}>
             {PHASE_LABELS[session.phase] || session.phase}
           </span>
+          {repoContext && (
+            <span
+              title={repoContext.framework_context}
+              style={{
+                fontSize: '10.5px', padding: '2px 8px', borderRadius: '20px',
+                fontWeight: 500, letterSpacing: '0.2px',
+                background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-muted)',
+                display: 'flex', alignItems: 'center', gap: '4px',
+              }}
+            >
+              repo: {repoContext.repo_name}
+            </span>
+          )}
         </div>
       </div>
 

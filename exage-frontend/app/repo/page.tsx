@@ -43,22 +43,17 @@ export default function RepoPage() {
     }
   }, [])
 
-  const handleStartProbing = useCallback(async () => {
-    if (!result) return
+  const handleStartProbing = useCallback(async (analysisResult: RepoAnalysisResult) => {
     setIsCreatingSession(true)
     try {
-      const { session_id, opening_message } = await createSessionFromAnalysis(result.session_context)
-      // Pass opening_message as a query param so chat page can use it
-      const params = new URLSearchParams({
-        session: session_id,
-        opening: encodeURIComponent(opening_message),
-      })
+      const { session_id, opening_message } = await createSessionFromAnalysis(analysisResult.session_context)
+      const params = new URLSearchParams({ session: session_id })
       router.push(`/chat?${params.toString()}`)
     } catch (err) {
       console.error('Failed to create session:', err)
       setIsCreatingSession(false)
     }
-  }, [result, router])
+  }, [router])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
@@ -120,11 +115,13 @@ export default function RepoPage() {
 
         {pageState === 'report' && result && (
           <div style={{ height: '100%', overflowY: 'auto' }}>
-            <RepoAnalysisReport
-              result={result}
-              onStartProbing={handleStartProbing}
-              isCreatingSession={isCreatingSession}
-            />
+            <div style={{ maxWidth: '760px', margin: '0 auto', padding: '40px 48px' }}>
+              <RepoAnalysisReport
+                result={result}
+                onStartProbing={handleStartProbing}
+                isCreatingSession={isCreatingSession}
+              />
+            </div>
           </div>
         )}
 

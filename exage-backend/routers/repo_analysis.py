@@ -19,7 +19,7 @@ from repo_agents.pipeline_v2 import (
     result_to_session_context,
     RepoAnalysisResult,
 )
-from models import Session as ChatSession
+from models import Session as ChatSession, Message
 
 router = APIRouter(prefix="/repo-analysis", tags=["repo-analysis"])
 
@@ -108,19 +108,25 @@ async def create_session_from_analysis(
 ):
     """
     Creates an Option 1 chat session pre-loaded with repo gaps.
-    Returns session_id + the opening message to show the learner.
+
+    Persists:
+    - The full session_context (repo_context, gaps, etc.) to session_context_json
+      so it survives reload / backend restart (fixes issue #3).
+    - The opening message as the FIRST Message row in the conversation,
+      so session restoration goes through the existing message-loading
+      pipeline with no special-casing required on the frontend.
+
+    Returns session_id + the opening message (still returned for the
+    immediate redirect UX — frontend no longer NEEDS this since it's
+    persisted, but it avoids an extra round-trip on first load).
     """
     repo_ctx = session_context.get("repo_context", {})
     repo_name = repo_ctx.get("repo_name", "your repository")
     probing_questions = repo_ctx.get("probing_questions", [])
     first_question = probing_questions[0] if probing_questions else None
 
-    # Build a contextual opening message referencing the repo and first gap
     if first_question:
-        opening_message = (
-            f"I've analysed your {repo_name} repository. "
-            f"{first_question}"
-        )
+        opening_message = f"I've analysed your {repo_name} repository. {first_question}"
     else:
         topic = session_context.get("topic", "this topic")
         opening_message = f"I've analysed your {repo_name} repository. Walk me through what you understand about {topic}."
@@ -133,8 +139,22 @@ async def create_session_from_analysis(
         asked_gaps_json=json.dumps([]),
         open_gaps_json=json.dumps(session_context.get("open_gaps", [])),
         misconceptions_json=json.dumps([]),
+        # Issue #3 fix: persist full session context so repo analysis survives reload
+        session_context_json=json.dumps(session_context),
     )
     db.add(session)
+    db.flush()  # get session.id before adding the message
+
+    # Issue #3 fix: persist opening message as a normal Message row.
+    # This means session restoration uses the SAME getSessionMessages()
+    # pipeline as any other session — no special-casing needed.
+    opening_msg = Message(
+        session_id=session.id,
+        role="assistant",
+        content=opening_message,
+    )
+    db.add(opening_msg)
+
     db.commit()
     db.refresh(session)
 
@@ -142,7 +162,7 @@ async def create_session_from_analysis(
         "session_id": session.id,
         "topic": session.topic,
         "phase": session.phase,
-        "opening_message": opening_message,  # ← new field
+        "opening_message": opening_message,
     }
 
 
