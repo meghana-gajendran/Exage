@@ -16,6 +16,14 @@ class Session(Base):
     asked_gaps_json: Mapped[str] = mapped_column(Text, default="[]")
     open_gaps_json: Mapped[str] = mapped_column(Text, default="[]")
     misconceptions_json: Mapped[str] = mapped_column(Text, default="[]")
+
+    # Generic field for session-origin-specific metadata.
+    # Empty "{}" for normal Option 1 chat sessions.
+    # Populated with repo analysis context for Option 2 sessions.
+    # Designed to extend to future origins (PDF analysis, VS Code extension,
+    # agent skills, MCP tools) without further schema changes.
+    session_context_json: Mapped[str] = mapped_column(Text, default="{}")
+
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

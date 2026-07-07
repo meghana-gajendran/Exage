@@ -1,5 +1,3 @@
-// ── Option 1 types ────────────────────────────────────────────────
-
 export type LearningGoal = 'exam' | 'interview' | 'project' | 'teaching' | 'curiosity'
 export type Phase = 'onboarding' | 'probing' | 'synthesis'
 export type GapSeverity = 'critical' | 'important' | 'nice-to-know'
@@ -10,12 +8,28 @@ export interface Gap {
   why_it_matters_for_goal: string
 }
 
+// Issue #3 fix: session_context holds origin-specific metadata.
+// Empty {} for normal chat sessions. Populated with repo analysis
+// data for Option 2 sessions. Generic shape so future origins
+// (PDF analysis, VS Code extension, agent skills) can reuse it
+// without another schema change.
+export interface RepoSessionContext {
+  repo_context?: {
+    repo_name: string
+    domain: string
+    framework_context: string
+    overall_assessment: string
+    probing_questions: string[]
+  }
+}
+
 export interface Session {
   id: string
   topic: string
   learning_goal: LearningGoal
   phase: Phase
   turn_count: number
+  session_context: RepoSessionContext
 }
 
 export type MessageRole = 'user' | 'assistant'
@@ -66,8 +80,6 @@ export interface SSEEvent {
   data?: SynthesisData
 }
 
-// ── Option 2 types ────────────────────────────────────────────────
-
 export type GapCategory = 'domain_core' | 'general_practice'
 export type GapUrgency = 'immediate' | 'soon' | 'eventually'
 
@@ -95,23 +107,12 @@ export interface RepoAnalysisResult {
   ranked_gaps: RankedGap[]
   analysis_summary: string
   technology_coverage_score: number
-  session_context: RepoSessionContext
-}
-
-export interface RepoSessionContext {
-  topic: string
-  learning_goal: LearningGoal
-  phase: Phase
-  known_concepts: string[]
-  open_gaps: Gap[]
-  asked_gaps: string[]
-  misconceptions: string[]
-  repo_context: {
-    repo_name: string
-    domain: string
-    framework_context: string
-    overall_assessment: string
-    probing_questions: string[]
+  session_context: RepoSessionContext & {
+    topic: string
+    learning_goal: LearningGoal
+    phase: Phase
+    known_concepts: string[]
+    open_gaps: Gap[]
   }
 }
 
