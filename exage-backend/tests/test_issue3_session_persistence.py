@@ -9,9 +9,7 @@ Covers:
 """
 
 import json
-import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
 from main import app
 from database import SessionLocal
 from models import Session as ChatSession, Message

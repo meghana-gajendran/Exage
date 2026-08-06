@@ -13,7 +13,6 @@ The judge is given:
 The judge scores each dimension 1-5 and explains its reasoning.
 """
 
-import json
 from dataclasses import dataclass
 from chat_agents.base import call_llm
 

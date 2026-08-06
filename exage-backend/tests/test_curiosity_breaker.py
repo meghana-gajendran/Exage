@@ -12,7 +12,7 @@ They validate:
 import pytest
 from unittest.mock import patch, AsyncMock
 
-from eval.objective_eval import run_objective_eval, ObjectiveEvalResult
+from eval.objective_eval import run_objective_eval
 from eval.test_cases import TEST_CASES
 
 

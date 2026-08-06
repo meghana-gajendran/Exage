@@ -22,6 +22,48 @@ def _is_synthesis_trigger(message: str, turn_count: int) -> bool:
     return False
 
 
+def _persist_turn(
+    db: DBSession,
+    session: Session,
+    user_message: str,
+    assistant_content: str,
+    traces: list,
+) -> None:
+    """Persist messages and agent traces for one turn. Used by both probing and synthesis."""
+    db.add(Message(session_id=session.id, role="user", content=user_message))
+    db.add(Message(session_id=session.id, role="assistant", content=assistant_content))
+    for agent_name, inp, out, lat in traces:
+        db.add(AgentTrace(
+            session_id=session.id,
+            turn_number=session.turn_count + 1,
+            agent_name=agent_name,
+            input_json=json.dumps(inp),
+            output_json=json.dumps(out),
+            latency_ms=lat,
+        ))
+
+
+async def _run_evaluation_if_applicable(
+    history: list,
+    user_message: str,
+    asked_gaps: list,
+    traces: list,
+) -> None:
+    """Run evaluation agent on the previous turn if we have enough history."""
+    if len(history) >= 2:
+        last_question = next(
+            (m["content"] for m in reversed(history) if m["role"] == "assistant"), ""
+        )
+        if last_question:
+            targeted_gap = asked_gaps[-1] if asked_gaps else "general understanding"
+            eval_out, eval_latency = await run_evaluation_agent(
+                question_asked=last_question,
+                learner_response=user_message,
+                targeted_gap=targeted_gap,
+            )
+            traces.append(("evaluation_agent", {}, eval_out, eval_latency))
+
+
 async def run_pipeline_streaming(
     session: Session,
     user_message: str,
@@ -40,16 +82,7 @@ async def run_pipeline_streaming(
         yield {"type": "status", "text": "Preparing your session summary…"}
 
         # Run evaluation on last turn if we have history
-        if len(history) >= 2:
-            last_question = next(
-                (m["content"] for m in reversed(history) if m["role"] == "assistant"), ""
-            )
-            eval_out, eval_latency = await run_evaluation_agent(
-                question_asked=last_question,
-                learner_response=user_message,
-                targeted_gap=asked_gaps[-1] if asked_gaps else "general understanding",
-            )
-            traces.append(("evaluation_agent", {}, eval_out, eval_latency))
+        await _run_evaluation_if_applicable(history, user_message, asked_gaps, traces)
 
         yield {"type": "status", "text": "Building synthesis…"}
 
@@ -64,17 +97,7 @@ async def run_pipeline_streaming(
         traces.append(("synthesis_agent", {}, synthesis_out, latency))
 
         # Persist
-        db.add(Message(session_id=session.id, role="user", content=user_message))
-        db.add(Message(session_id=session.id, role="assistant", content=json.dumps(synthesis_out)))
-        for agent_name, inp, out, lat in traces:
-            db.add(AgentTrace(
-                session_id=session.id,
-                turn_number=session.turn_count + 1,
-                agent_name=agent_name,
-                input_json=json.dumps(inp),
-                output_json=json.dumps(out),
-                latency_ms=lat,
-            ))
+        _persist_turn(db, session, user_message, json.dumps(synthesis_out), traces)
 
         session.phase = "synthesis"
         session.turn_count += 1
@@ -112,17 +135,7 @@ async def run_pipeline_streaming(
     ]))
 
     # Run evaluation on previous turn if we have enough history
-    if len(history) >= 2:
-        last_question = next(
-            (m["content"] for m in reversed(history) if m["role"] == "assistant"), ""
-        )
-        if last_question and asked_gaps:
-            eval_out, eval_latency = await run_evaluation_agent(
-                question_asked=last_question,
-                learner_response=user_message,
-                targeted_gap=asked_gaps[-1] if asked_gaps else "general understanding",
-            )
-            traces.append(("evaluation_agent", {}, eval_out, eval_latency))
+    await _run_evaluation_if_applicable(history, user_message, asked_gaps, traces)
 
     yield {"type": "status", "text": "Forming a question…"}
     generator_input = {
@@ -151,17 +164,7 @@ async def run_pipeline_streaming(
         yield {"type": "token", "text": token}
 
     # Persist
-    db.add(Message(session_id=session.id, role="user", content=user_message))
-    db.add(Message(session_id=session.id, role="assistant", content=response_text))
-    for agent_name, inp, out, lat in traces:
-        db.add(AgentTrace(
-            session_id=session.id,
-            turn_number=session.turn_count + 1,
-            agent_name=agent_name,
-            input_json=json.dumps(inp),
-            output_json=json.dumps(out),
-            latency_ms=lat,
-        ))
+    _persist_turn(db, session, user_message, response_text, traces)
 
     session.known_concepts_json = json.dumps(known_concepts)
     session.asked_gaps_json = json.dumps(asked_gaps + [g["concept"] for g in open_gaps[:2]])

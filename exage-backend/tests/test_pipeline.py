@@ -77,7 +77,6 @@ async def test_pipeline_streaming_yields_correct_event_types():
     status, token, and done events in the correct order.
     This catches breakage if event keys or types change in runner.py.
     """
-    import json
     from unittest.mock import MagicMock, AsyncMock, patch
 
     mock_session = MagicMock()
