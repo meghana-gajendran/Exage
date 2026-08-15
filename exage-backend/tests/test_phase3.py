@@ -248,8 +248,9 @@ async def test_consequence_ranker_domain_core_ranks_above_general():
 
 # ─── Full pipeline tests ──────────────────────────────────────────────────────
 
-@pytest.mark.asyncio
-async def test_full_pipeline_produces_ranked_gaps():
+
+async def _run_full_pipeline_with_mocks(learning_goal: str = "interview"):
+    """Shared helper — runs the full pipeline with standard mocks."""
     import tempfile
     from pathlib import Path
 
@@ -257,56 +258,43 @@ async def test_full_pipeline_produces_ranked_gaps():
         Path(tmp, "dbt_project.yml").write_text("name: test\n")
 
         with patch("repo_agents.concept_extractor_v2.call_llm",
-                   new=AsyncMock(return_value=(MOCK_EXTRACTED, 800))), \
-             patch("repo_agents.skill_inferrer.call_llm",
-                   new=AsyncMock(return_value=(MOCK_SKILL_MAP, 700))), \
-             patch("repo_agents.gap_detector_v2.call_llm",
-                   new=AsyncMock(return_value=(MOCK_GAPS, 900))), \
-             patch("repo_agents.consequence_ranker.call_llm",
+                   new=AsyncMock(return_value=(MOCK_EXTRACTED, 800))),              patch("repo_agents.skill_inferrer.call_llm",
+                   new=AsyncMock(return_value=(MOCK_SKILL_MAP, 700))),              patch("repo_agents.gap_detector_v2.call_llm",
+                   new=AsyncMock(return_value=(MOCK_GAPS, 900))),              patch("repo_agents.consequence_ranker.call_llm",
                    new=AsyncMock(return_value=(MOCK_RANKED, 800))):
 
             from repo_agents.pipeline_v2 import run_option2_pipeline
-            result = await run_option2_pipeline(tmp, learning_goal="interview")
+            return await run_option2_pipeline(tmp, learning_goal=learning_goal)
 
-            assert result.error is None
-            assert len(result.ranked_gaps) > 0
-            assert result.ranked_gaps[0].probing_question != ""
-            assert result.ranked_gaps[0].gap_category in {"domain_core", "general_practice"}
-            assert result.domain == "data pipeline"
-            assert result.learning_goal == "interview"
-            assert len(result.agent_traces) == 4
+
+@pytest.mark.asyncio
+async def test_full_pipeline_produces_ranked_gaps():
+    result = await _run_full_pipeline_with_mocks()
+
+    assert result.error is None
+    assert len(result.ranked_gaps) > 0
+    assert result.ranked_gaps[0].probing_question != ""
+    assert result.ranked_gaps[0].gap_category in {"domain_core", "general_practice"}
+    assert result.domain == "data pipeline"
+    assert result.learning_goal == "interview"
+    assert len(result.agent_traces) == 4
 
 
 @pytest.mark.asyncio
 async def test_full_pipeline_produces_session_context():
-    import tempfile
-    from pathlib import Path
+    from repo_agents.pipeline_v2 import result_to_session_context
 
-    with tempfile.TemporaryDirectory() as tmp:
-        Path(tmp, "dbt_project.yml").write_text("name: test\n")
+    result = await _run_full_pipeline_with_mocks()
+    context = result_to_session_context(result)
 
-        with patch("repo_agents.concept_extractor_v2.call_llm",
-                   new=AsyncMock(return_value=(MOCK_EXTRACTED, 800))), \
-             patch("repo_agents.skill_inferrer.call_llm",
-                   new=AsyncMock(return_value=(MOCK_SKILL_MAP, 700))), \
-             patch("repo_agents.gap_detector_v2.call_llm",
-                   new=AsyncMock(return_value=(MOCK_GAPS, 900))), \
-             patch("repo_agents.consequence_ranker.call_llm",
-                   new=AsyncMock(return_value=(MOCK_RANKED, 800))):
-
-            from repo_agents.pipeline_v2 import run_option2_pipeline, result_to_session_context
-            result = await run_option2_pipeline(tmp, learning_goal="interview")
-            context = result_to_session_context(result)
-
-            # Verify it can slot into Option 1 session
-            assert "topic" in context
-            assert "learning_goal" in context
-            assert context["phase"] == "probing"
-            assert isinstance(context["open_gaps"], list)
-            assert isinstance(context["known_concepts"], list)
-            assert "repo_context" in context
-            assert context["repo_context"]["domain"] == "data pipeline"
-            assert len(context["repo_context"]["probing_questions"]) > 0
+    assert "topic" in context
+    assert "learning_goal" in context
+    assert context["phase"] == "probing"
+    assert isinstance(context["open_gaps"], list)
+    assert isinstance(context["known_concepts"], list)
+    assert "repo_context" in context
+    assert context["repo_context"]["domain"] == "data pipeline"
+    assert len(context["repo_context"]["probing_questions"]) > 0
 
 
 def test_format_result_shows_ranked_gaps():

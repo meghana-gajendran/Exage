@@ -1,12 +1,15 @@
 """
 Repo Analysis router — Option 2 API endpoints.
 
-POST /repo-analysis        Run the full Option 2 pipeline
-POST /repo-analysis/stream Stream pipeline with SSE status events
+POST /repo-analysis/anecdotes   Generate curiosity breaker anecdotes for ranked gaps
+POST /repo-analysis/            Run the full Option 2 pipeline
+POST /repo-analysis/stream      Stream pipeline with SSE status events
 POST /repo-analysis/create-session  Create Option 1 session from analysis
 """
 
 import json
+import asyncio
+import traceback
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session as DBSession
@@ -19,6 +22,7 @@ from repo_agents.pipeline_v2 import (
     result_to_session_context,
     RepoAnalysisResult,
 )
+from chat_agents.curiosity_breaker import run_curiosity_breaker
 from models import Session as ChatSession, Message
 
 router = APIRouter(prefix="/repo-analysis", tags=["repo-analysis"])
@@ -28,6 +32,28 @@ class RepoAnalysisRequest(BaseModel):
     repo_input: str
     learning_goal: str
     github_token: Optional[str] = None
+
+
+class RankedGapRequest(BaseModel):
+    concept: str
+    consequence_for_goal: str
+    gap_category: str
+
+
+class AnecdotesRequest(BaseModel):
+    gaps: list[RankedGapRequest]
+    learning_goal: str
+    domain: str
+    framework_context: str
+
+
+class AnecdoteItem(BaseModel):
+    concept: str
+    anecdote: str
+
+
+class AnecdotesResponse(BaseModel):
+    anecdotes: list[AnecdoteItem]
 
 
 class RankedGapResponse(BaseModel):
@@ -55,6 +81,28 @@ class RepoAnalysisResponse(BaseModel):
     analysis_summary: str
     technology_coverage_score: int
     session_context: dict
+
+
+@router.post("/anecdotes", response_model=AnecdotesResponse)
+async def generate_anecdotes(body: AnecdotesRequest):
+    """
+    Generate one curiosity breaker anecdote per ranked gap.
+    Called after the analysis report is shown — generates anecdotes
+    in parallel for all gaps and returns them together.
+    """
+    async def generate_one(gap: RankedGapRequest) -> AnecdoteItem:
+        anecdote, _ = await run_curiosity_breaker(
+            concept=gap.concept,
+            learning_goal=body.learning_goal,
+            domain=body.domain,
+            repo_context=body.framework_context,
+        )
+        return AnecdoteItem(concept=gap.concept, anecdote=anecdote)
+
+    # Generate all anecdotes in parallel
+    anecdotes = await asyncio.gather(*[generate_one(gap) for gap in body.gaps])
+
+    return AnecdotesResponse(anecdotes=list(anecdotes))
 
 
 @router.post("/", response_model=RepoAnalysisResponse)
@@ -88,16 +136,22 @@ async def analyse_repo_stream(body: RepoAnalysisRequest):
                 return
 
             yield f"data: {json.dumps({'type': 'status', 'text': 'Ranking gaps…'})}\n\n"
+
             payload = _build_response(result)
+
             yield f"data: {json.dumps({'type': 'done', 'result': payload.model_dump()})}\n\n"
 
         except Exception as e:
+            traceback.print_exc()
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
 
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
@@ -108,17 +162,9 @@ async def create_session_from_analysis(
 ):
     """
     Creates an Option 1 chat session pre-loaded with repo gaps.
-
-    Persists:
-    - The full session_context (repo_context, gaps, etc.) to session_context_json
-      so it survives reload / backend restart (fixes issue #3).
-    - The opening message as the FIRST Message row in the conversation,
-      so session restoration goes through the existing message-loading
-      pipeline with no special-casing required on the frontend.
-
-    Returns session_id + the opening message (still returned for the
-    immediate redirect UX — frontend no longer NEEDS this since it's
-    persisted, but it avoids an extra round-trip on first load).
+    Now supports creating a session for a SINGLE selected gap
+    (when learner clicks "Probe this gap" on one specific gap card)
+    as well as all gaps at once.
     """
     repo_ctx = session_context.get("repo_context", {})
     repo_name = repo_ctx.get("repo_name", "your repository")
@@ -129,7 +175,10 @@ async def create_session_from_analysis(
         opening_message = f"I've analysed your {repo_name} repository. {first_question}"
     else:
         topic = session_context.get("topic", "this topic")
-        opening_message = f"I've analysed your {repo_name} repository. Walk me through what you understand about {topic}."
+        opening_message = (
+            f"I've analysed your {repo_name} repository. "
+            f"Walk me through what you understand about {topic}."
+        )
 
     session = ChatSession(
         topic=session_context.get("topic", ""),
@@ -139,22 +188,17 @@ async def create_session_from_analysis(
         asked_gaps_json=json.dumps([]),
         open_gaps_json=json.dumps(session_context.get("open_gaps", [])),
         misconceptions_json=json.dumps([]),
-        # Issue #3 fix: persist full session context so repo analysis survives reload
         session_context_json=json.dumps(session_context),
     )
     db.add(session)
-    db.flush()  # get session.id before adding the message
+    db.flush()
 
-    # Issue #3 fix: persist opening message as a normal Message row.
-    # This means session restoration uses the SAME getSessionMessages()
-    # pipeline as any other session — no special-casing needed.
     opening_msg = Message(
         session_id=session.id,
         role="assistant",
         content=opening_message,
     )
     db.add(opening_msg)
-
     db.commit()
     db.refresh(session)
 

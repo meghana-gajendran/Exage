@@ -78,10 +78,15 @@ async def run_option2_pipeline(
         RepoAnalysisResult with ranked gaps and probing questions
     """
 
+    
+
     # ── Phase 1: Repo Ingestion ─────────────────────────────────────
+    print("1. Ingesting repo...")
     summary: RepoSummary = ingest_repo(repo_input, github_token)
+  
 
     if summary.error:
+        print("❌ Ingestion error:", summary.error)
         return RepoAnalysisResult(
             repo_name=summary.repo_name,
             input_type=summary.input_type,
@@ -102,8 +107,16 @@ async def run_option2_pipeline(
     repo_text = format_summary_for_llm(summary)
     traces = []
 
+    print("Frameworks:", framework_names)
+    print("Repo text length:", len(repo_text))
+
     # ── Phase 2a: Concept Extraction ────────────────────────────────
-    extracted, latency = await run_concept_extractor_v2(repo_text, framework_names)
+    print("2. Running Concept Extractor...")
+    extracted, latency = await run_concept_extractor_v2(
+        repo_text,
+        framework_names,
+    )
+  
     traces.append({
         "agent": "concept_extractor_v2",
         "latency_ms": latency,
@@ -112,7 +125,13 @@ async def run_option2_pipeline(
     })
 
     # ── Phase 2b: Skill Inference ────────────────────────────────────
-    skill_result, latency = await run_skill_inferrer(extracted, framework_names)
+  
+    skill_result, latency = await run_skill_inferrer(
+        extracted,
+        framework_names,
+    )
+
+
     traces.append({
         "agent": "skill_inferrer",
         "latency_ms": latency,
@@ -120,11 +139,14 @@ async def run_option2_pipeline(
     })
 
     # ── Phase 3a: Gap Detection ──────────────────────────────────────
+  
     gaps_result, latency = await run_gap_detector_v2(
         skill_map=skill_result,
         extracted_concepts=extracted,
         frameworks=framework_names,
     )
+  
+
     traces.append({
         "agent": "gap_detector_v2",
         "latency_ms": latency,
@@ -134,16 +156,21 @@ async def run_option2_pipeline(
     })
 
     # ── Phase 3b: Consequence Ranking ────────────────────────────────
+  
     ranked_result, latency = await run_consequence_ranker(
         gaps=gaps_result,
         learning_goal=learning_goal,
         frameworks=framework_names,
     )
+   
+
     traces.append({
         "agent": "consequence_ranker",
         "latency_ms": latency,
         "ranked_gaps_count": len(ranked_result.get("ranked_gaps", [])),
     })
+
+   
 
     # Parse ranked gaps into dataclass objects
     ranked_gaps = [
@@ -178,7 +205,6 @@ async def run_option2_pipeline(
         raw_gaps=gaps_result,
         agent_traces=traces,
     )
-
 
 def format_result_for_display(result: RepoAnalysisResult) -> str:
     """Format the full analysis result for human-readable display."""
